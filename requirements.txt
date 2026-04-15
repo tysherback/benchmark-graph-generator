@@ -1,0 +1,4 @@
+# Requires Python 3.12+ (tkinter bundled) or Python 3.11 with python3.11-tk installed
+numpy
+pandas
+matplotlib
