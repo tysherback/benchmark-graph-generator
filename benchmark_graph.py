@@ -198,9 +198,9 @@ def make_frametime_combined(
     save_path: Path | None = None,
     _single: bool = False,
 ) -> Figure:
-    """Overlaid frametime line chart — all runs on one graph, y-axis 0–60 ms."""
+    """Overlaid frametime line chart — all runs on one graph, auto-scaled y-axis."""
     all_ft = np.concatenate(list(frametimes_by_label.values()))
-    y_max = 60.0
+    y_max = max(float(np.percentile(all_ft, 99)) * 1.1, 20.0)
     total_clipped = int(np.sum(all_ft > y_max))
 
     with plt.rc_context(DARK_STYLE):
@@ -224,8 +224,8 @@ def make_frametime_combined(
         ax.yaxis.grid(True)
 
         clip_note = (
-            f"{total_clipped} spike{'s' if total_clipped != 1 else ''} above 60 ms hidden"
-            if total_clipped else "y-axis: 0 – 60 ms"
+            f"{total_clipped} spike{'s' if total_clipped != 1 else ''} above {y_max:.0f} ms hidden"
+            if total_clipped else f"y-axis 0 – {y_max:.0f} ms"
         )
         ax.legend(fontsize=8, title=clip_note, title_fontsize=7)
         fig.tight_layout()
@@ -283,8 +283,9 @@ def make_gpu_busy_line(
     title: str,
     save_path: Path | None = None,
 ) -> Figure:
-    """Overlaid MsGPUBusy line chart — all runs on one graph, y-axis 0–60 ms."""
-    y_max = 60.0
+    """Overlaid MsGPUBusy line chart — all runs on one graph, auto-scaled y-axis."""
+    all_vals = np.concatenate(list(gpu_busy_by_label.values()))
+    y_max = max(float(np.percentile(all_vals, 99)) * 1.1, 5.0)
 
     with plt.rc_context(DARK_STYLE):
         fig, ax = plt.subplots(figsize=(12, 5))
@@ -318,9 +319,10 @@ def make_latency_plot(
 ) -> Figure:
     """
     Overlaid latency line chart for one metric across all runs.
-    Fixed 0–60 ms y-axis; samples above 60 ms are silently clipped.
+    Auto-scaled y-axis (99th percentile + 10 % headroom).
     """
-    y_max = 60.0
+    all_vals = np.concatenate(list(runs_by_label.values()))
+    y_max = max(float(np.percentile(all_vals, 99)) * 1.1, 5.0)
     axis_label = next(
         (lbl for _, name, lbl in LATENCY_COLUMNS if name == metric_display_name),
         f"{metric_display_name} (ms) — lower is better",
@@ -345,8 +347,8 @@ def make_latency_plot(
         ax.yaxis.grid(True)
 
         clip_note = (
-            f"{clipped} spike{'s' if clipped != 1 else ''} above 60 ms hidden"
-            if clipped else "y-axis: 0 – 60 ms"
+            f"{clipped} spike{'s' if clipped != 1 else ''} above {y_max:.0f} ms hidden"
+            if clipped else f"y-axis: 0 – {y_max:.0f} ms"
         )
         ax.legend(fontsize=8, title=clip_note, title_fontsize=7)
         fig.tight_layout()
