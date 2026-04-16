@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, simpledialog, ttk
+from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 from tkinter.scrolledtext import ScrolledText
 
 import numpy as np
@@ -42,6 +42,98 @@ FG_DIM     = "#666688"
 FONT_MAIN  = ("Segoe UI", 10)
 FONT_MONO  = ("Consolas", 9)
 FONT_TITLE = ("Segoe UI", 11, "bold")
+
+
+# ---------------------------------------------------------------------------
+# Color palette presets
+# ---------------------------------------------------------------------------
+
+PRESETS: dict[str, list[str]] = {
+    "Neon Dark":     ["#e43f64", "#2daae9", "#c680cf"],
+    "Arctic Blue":   ["#00b4d8", "#48cae4", "#ade8f4"],
+    "Warm Sunset":   ["#f77f00", "#fcbf49", "#eae2b7"],
+    "Forest":        ["#52b788", "#2d6a4f", "#95d5b2"],
+    "Monochrome":    ["#e0e0e0", "#a0a0a0", "#606060"],
+}
+
+
+# ---------------------------------------------------------------------------
+# Color editor dialog
+# ---------------------------------------------------------------------------
+
+class ColorEditorDialog(tk.Toplevel):
+    """Modal dialog for picking custom series colors."""
+
+    def __init__(self, parent: tk.Tk, current_palette: list[str]) -> None:
+        super().__init__(parent)
+        self.title("Edit Chart Colors")
+        self.resizable(False, False)
+        self.configure(bg=BG_DARK)
+        self.transient(parent)
+        self.grab_set()
+
+        self.result: list[str] | None = None
+        self._colors = list(current_palette)
+        self._swatches: list[tk.Button] = []
+
+        ttk.Label(self, text="Click a swatch to pick a color",
+                  foreground=FG_DIM, font=("Segoe UI", 9)).pack(pady=(12, 6), padx=20)
+
+        for i, label in enumerate(("Series 1", "Series 2", "Series 3")):
+            row = ttk.Frame(self)
+            row.pack(fill="x", padx=20, pady=4)
+
+            ttk.Label(row, text=label, width=10, anchor="w").pack(side="left")
+
+            swatch = tk.Button(
+                row, bg=self._colors[i], width=4, relief="flat",
+                activebackground=self._colors[i], cursor="hand2",
+                command=lambda idx=i: self._pick(idx),
+            )
+            swatch.pack(side="left", padx=(0, 8))
+            self._swatches.append(swatch)
+
+            hex_var = tk.StringVar(value=self._colors[i])
+            hex_entry = ttk.Entry(row, textvariable=hex_var, width=10)
+            hex_entry.pack(side="left")
+            hex_entry.bind("<FocusOut>", lambda e, idx=i, v=hex_var: self._apply_hex(idx, v))
+            hex_entry.bind("<Return>",   lambda e, idx=i, v=hex_var: self._apply_hex(idx, v))
+            # stash for later updates
+            swatch._hex_var = hex_var  # type: ignore[attr-defined]
+
+        btn_row = ttk.Frame(self)
+        btn_row.pack(pady=(14, 14))
+        ttk.Button(btn_row, text="Apply",  command=self._confirm).pack(side="left", padx=4)
+        ttk.Button(btn_row, text="Cancel", command=self.destroy).pack(side="left", padx=4)
+
+        self.wait_window()
+
+    def _pick(self, idx: int) -> None:
+        result = colorchooser.askcolor(
+            color=self._colors[idx], parent=self,
+            title=f"Pick color for Series {idx + 1}",
+        )
+        if result[1]:
+            self._set_color(idx, result[1])
+
+    def _apply_hex(self, idx: int, var: tk.StringVar) -> None:
+        val = var.get().strip()
+        if not val.startswith("#"):
+            val = "#" + val
+        try:
+            self.winfo_rgb(val)   # raises TclError if invalid
+            self._set_color(idx, val)
+        except tk.TclError:
+            var.set(self._colors[idx])   # revert bad input
+
+    def _set_color(self, idx: int, hex_color: str) -> None:
+        self._colors[idx] = hex_color
+        self._swatches[idx].configure(bg=hex_color, activebackground=hex_color)
+        self._swatches[idx]._hex_var.set(hex_color)  # type: ignore[attr-defined]
+
+    def _confirm(self) -> None:
+        self.result = list(self._colors)
+        self.destroy()
 
 
 # ---------------------------------------------------------------------------
@@ -127,9 +219,51 @@ class App(tk.Tk):
         self._log_queue: queue.Queue[str | None] = queue.Queue()
         self._last_outdir: Path | None = None
         self._generating = False
+        self._palette_name = tk.StringVar(value="Neon Dark")
 
+        self._build_menubar()
         self._build_ui()
         self._poll_log()
+
+    # -----------------------------------------------------------------------
+    # Menu bar
+    # -----------------------------------------------------------------------
+
+    def _build_menubar(self) -> None:
+        menubar = tk.Menu(self, bg=BG_PANEL, fg=FG_TEXT, activebackground=BG_WIDGET,
+                          activeforeground=FG_TEXT, borderwidth=0, relief="flat")
+
+        colors_menu = tk.Menu(menubar, tearoff=False, bg=BG_PANEL, fg=FG_TEXT,
+                              activebackground=BG_WIDGET, activeforeground=FG_TEXT)
+
+        for name in PRESETS:
+            colors_menu.add_radiobutton(
+                label=name,
+                variable=self._palette_name,
+                value=name,
+                command=lambda n=name: self._apply_preset(n),
+            )
+
+        colors_menu.add_separator()
+        colors_menu.add_command(label="Edit Colors…", command=self._open_color_editor)
+
+        menubar.add_cascade(label="Colors", menu=colors_menu)
+        self.configure(menu=menubar)
+
+    def _apply_preset(self, name: str) -> None:
+        bg.PALETTE[:] = PRESETS[name]
+        self._palette_name.set(name)
+        self._log_widget_write(f"Palette changed to  {name}  — regenerate to apply.\n", tag="dim")
+
+    def _open_color_editor(self) -> None:
+        dlg = ColorEditorDialog(self, bg.PALETTE)
+        if dlg.result is not None:
+            bg.PALETTE[:] = dlg.result
+            self._palette_name.set("Custom")
+            self._log_widget_write(
+                f"Custom palette applied: {', '.join(dlg.result)}"
+                "  — regenerate to apply.\n", tag="dim"
+            )
 
     # -----------------------------------------------------------------------
     # UI construction
