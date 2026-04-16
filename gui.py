@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 import matplotlib
-matplotlib.use("TkAgg")
+matplotlib.use("Agg")   # thread-safe, non-interactive; figures are embedded via FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
