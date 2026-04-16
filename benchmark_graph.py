@@ -200,7 +200,7 @@ def make_frametime_combined(
 ) -> Figure:
     """Overlaid frametime line chart — all runs on one graph, auto-scaled y-axis."""
     all_ft = np.concatenate(list(frametimes_by_label.values()))
-    y_max = max(float(np.percentile(all_ft, 99)) * 1.1, 20.0)
+    y_max = max(float(np.percentile(all_ft, 99)) * 1.1, 70.0)
     total_clipped = int(np.sum(all_ft > y_max))
 
     with plt.rc_context(DARK_STYLE):
@@ -285,7 +285,11 @@ def make_gpu_busy_line(
 ) -> Figure:
     """Overlaid MsGPUBusy line chart — all runs on one graph, auto-scaled y-axis."""
     all_vals = np.concatenate(list(gpu_busy_by_label.values()))
+<<<<<<< HEAD
     y_max = max(float(np.percentile(all_vals, 99)) * 1.1, 5.0)
+=======
+    y_max = max(float(np.percentile(all_vals, 99)) * 1.1, 70.0)
+>>>>>>> 43ba9e1 (Set minimum y-axis to 70ms for all line charts)
 
     with plt.rc_context(DARK_STYLE):
         fig, ax = plt.subplots(figsize=(12, 5))
@@ -322,7 +326,11 @@ def make_latency_plot(
     Auto-scaled y-axis (99th percentile + 10 % headroom).
     """
     all_vals = np.concatenate(list(runs_by_label.values()))
+<<<<<<< HEAD
     y_max = max(float(np.percentile(all_vals, 99)) * 1.1, 5.0)
+=======
+    y_max = max(float(np.percentile(all_vals, 99)) * 1.1, 70.0)
+>>>>>>> 43ba9e1 (Set minimum y-axis to 70ms for all line charts)
     axis_label = next(
         (lbl for _, name, lbl in LATENCY_COLUMNS if name == metric_display_name),
         f"{metric_display_name} (ms) — lower is better",
