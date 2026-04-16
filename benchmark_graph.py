@@ -192,7 +192,7 @@ def make_frametime_combined(
         ax.set_ylim(bottom=0, top=y_max)
         ax.set_title(title)
         ax.set_xlabel("Frame")
-        ax.set_ylabel("Frametime (ms)")
+        ax.set_ylabel("Frametime (ms) — lower is better, consistent is best")
         ax.yaxis.grid(True)
 
         clip_note = (
@@ -238,7 +238,7 @@ def make_comparison_bar(
         ax.set_yticklabels(labels)
         ax.set_ylim(y[0] - spacing * 0.6, y[-1] + spacing * 0.6)
         ax.set_title(title)
-        ax.set_xlabel("FPS")
+        ax.set_xlabel("FPS — higher is better")
         ax.xaxis.grid(True)
         ax.yaxis.grid(False)
         ax.legend()
@@ -271,7 +271,7 @@ def make_gpu_busy_line(
         ax.set_ylim(bottom=0, top=y_max)
         ax.set_title(title)
         ax.set_xlabel("Frame")
-        ax.set_ylabel("GPU Busy (ms)")
+        ax.set_ylabel("GPU Busy (ms) — lower is better, consistent is best")
         ax.yaxis.grid(True)
         ax.legend(fontsize=8)
         fig.tight_layout()
@@ -300,7 +300,7 @@ def make_distribution_plot(
             ax.hist(ft, bins=bins, range=(lo, hi), alpha=0.45, label=label, color=color)
 
         ax.set_title(title)
-        ax.set_xlabel("Frametime (ms)")
+        ax.set_xlabel("Frametime (ms) — lower is better, consistent is best")
         ax.set_ylabel("Frames (count)")
         ax.yaxis.grid(True)
         ax.legend()
