@@ -480,27 +480,40 @@ class App(tk.Tk):
             messagebox.showwarning("No files", "Please add at least one CSV file.")
             return
 
+        # Snapshot all tkinter state here in the main thread — StringVar.get()
+        # is not safe to call from a worker thread on Windows.
+        params = {
+            "title":  self._title_var.get().strip() or "Benchmark Comparison",
+            "ft_col": self._ft_col_var.get().strip() or None,
+            "outdir": Path(self._outdir_var.get().strip() or "charts_out"),
+            "labels": [f["label"] for f in self._files],
+            "paths":  [f["path"]  for f in self._files],
+        }
+
         self._generating = True
         self._gen_btn.configure(state="disabled")
         self._open_btn.configure(state="disabled")
         self._progress.start(12)
-        self._log_clear()
 
-        thread = threading.Thread(target=self._run_generation, daemon=True)
+        # Write directly from the main thread so we know the log widget works.
+        self._log_widget_write("", clear=True)
+        self._log_widget_write(f"Starting generation for {len(params['paths'])} file(s)…\n")
+
+        thread = threading.Thread(target=self._run_generation, args=(params,), daemon=True)
         thread.start()
 
-    def _run_generation(self) -> None:
+    def _run_generation(self, params: dict) -> None:
         """Runs in a background thread. Posts results back via queue."""
         try:
-            title     = self._title_var.get().strip() or "Benchmark Comparison"
-            ft_col    = self._ft_col_var.get().strip() or None
-            outdir    = Path(self._outdir_var.get().strip() or "charts_out")
+            title   = params["title"]
+            ft_col  = params["ft_col"]
+            outdir  = params["outdir"]
+            labels  = params["labels"]
+            paths   = params["paths"]
+
             timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             run_dir   = outdir / timestamp
             run_dir.mkdir(parents=True, exist_ok=True)
-
-            labels  = [f["label"] for f in self._files]
-            paths   = [f["path"]  for f in self._files]
 
             all_metrics:         list[dict]            = []
             frametimes_by_label: dict[str, np.ndarray] = {}
