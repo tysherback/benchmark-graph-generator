@@ -158,21 +158,37 @@ def make_frametime_plot(
     title: str,
     save_path: Path | None = None,
 ) -> Figure:
-    """Line chart of frametime over the capture with reference lines."""
-    x = np.arange(len(frametime_ms))
-    y_max = max(float(np.percentile(frametime_ms, 99)) * 1.3, 55.0)
-    clipped = int(np.sum(frametime_ms > y_max))
+    """Single-run frametime line chart (used by the CLI)."""
+    return make_frametime_combined(
+        {"": frametime_ms}, title, save_path, _single=True
+    )
+
+
+def make_frametime_combined(
+    frametimes_by_label: dict[str, np.ndarray],
+    title: str,
+    save_path: Path | None = None,
+    _single: bool = False,
+) -> Figure:
+    """Overlaid frametime line chart — all runs on one graph, y-axis tightly zoomed."""
+    all_ft = np.concatenate(list(frametimes_by_label.values()))
+    # Clip at 95th percentile + 5 % headroom so the bulk of frames fills the view.
+    y_max = max(float(np.percentile(all_ft, 95)) * 1.05, 20.0)
+    total_clipped = int(np.sum(all_ft > y_max))
 
     with plt.rc_context(DARK_STYLE):
         fig, ax = plt.subplots(figsize=(12, 5))
-        mean_ft = float(np.mean(frametime_ms))
 
-        ax.plot(x, frametime_ms, color=PALETTE[1], linewidth=1)
-        ax.axhline(mean_ft, color=PALETTE[1], linestyle="-", linewidth=1.2, alpha=0.6,
-                   label=f"Avg frametime {mean_ft:.2f} ms ({1000/mean_ft:.1f} FPS)")
-        ax.axhline(16.67, color=PALETTE[0], linestyle="--", linewidth=1, label="16.7 ms (60 FPS)")
-        ax.axhline(33.33, color=PALETTE[2], linestyle="--", linewidth=1, label="33.3 ms (30 FPS)")
-        ax.axhline(50.0,  color="#ffaa44",  linestyle="--", linewidth=1, label="50.0 ms (20 FPS)")
+        for (label, ft), color in zip(frametimes_by_label.items(), PALETTE * 10):
+            x = np.arange(len(ft))
+            mean_ft = float(np.mean(ft))
+            lbl = "" if _single else label
+            ax.plot(x, ft, color=color, linewidth=0.8, alpha=0.85, label=lbl or None)
+            ax.axhline(mean_ft, color=color, linestyle="-", linewidth=1.2, alpha=0.55,
+                       label=f"{lbl+' ' if lbl else ''}avg {mean_ft:.2f} ms  ({1000/mean_ft:.1f} FPS)")
+
+        ax.axhline(16.67, color="#888899", linestyle="--", linewidth=0.9, label="16.7 ms (60 FPS)")
+        ax.axhline(33.33, color="#666677", linestyle="--", linewidth=0.9, label="33.3 ms (30 FPS)")
 
         ax.set_ylim(bottom=0, top=y_max)
         ax.set_title(title)
@@ -181,8 +197,8 @@ def make_frametime_plot(
         ax.yaxis.grid(True)
 
         clip_note = (
-            f"y-axis clipped at {y_max:.0f} ms ({clipped} spike{'s' if clipped != 1 else ''} hidden)"
-            if clipped else f"y-axis clipped at {y_max:.0f} ms"
+            f"y-axis clipped at {y_max:.0f} ms  ({total_clipped} spike{'s' if total_clipped != 1 else ''} hidden)"
+            if total_clipped else f"y-axis clipped at {y_max:.0f} ms"
         )
         ax.legend(fontsize=8, title=clip_note, title_fontsize=7)
         fig.tight_layout()
@@ -199,29 +215,31 @@ def make_comparison_bar(
     title: str,
     save_path: Path | None = None,
 ) -> Figure:
-    """Grouped bar chart: Average FPS, 1% Low, 0.1% Low per run."""
-    x     = np.arange(len(labels))
-    width = 0.15
+    """Horizontal grouped bar chart: Average FPS, 1% Low, 0.1% Low per run."""
+    y      = np.arange(len(labels))
+    height = 0.09   # thin bars
 
     avg   = [m["avg_fps"]        for m in all_metrics]
     low1  = [m["one_pct_low"]    for m in all_metrics]
     low01 = [m["point1_pct_low"] for m in all_metrics]
 
+    fig_h = max(3.0, len(labels) * 1.2 + 1.5)
+
     with plt.rc_context(DARK_STYLE):
-        fig, ax = plt.subplots(figsize=(10, 5))
-        b1 = ax.bar(x - width, avg,   width, label="Average FPS", color=PALETTE[0])
-        b2 = ax.bar(x,         low1,  width, label="1% Low",      color=PALETTE[1])
-        b3 = ax.bar(x + width, low01, width, label="0.1% Low",    color=PALETTE[2])
+        fig, ax = plt.subplots(figsize=(10, fig_h))
+        b1 = ax.barh(y - height, avg,   height, label="Average FPS", color=PALETTE[0])
+        b2 = ax.barh(y,          low1,  height, label="1% Low",      color=PALETTE[1])
+        b3 = ax.barh(y + height, low01, height, label="0.1% Low",    color=PALETTE[2])
 
         for bars in (b1, b2, b3):
-            ax.bar_label(bars, fmt="%.0f", padding=3, fontsize=7, color="#ccccdd")
+            ax.bar_label(bars, fmt="%.0f", padding=4, fontsize=7, color="#ccccdd")
 
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels)
+        ax.set_yticks(y)
+        ax.set_yticklabels(labels)
         ax.set_title(title)
-        ax.set_ylabel("FPS", color="#555577")
+        ax.set_xlabel("FPS")
+        ax.xaxis.grid(True)
         ax.yaxis.grid(False)
-        ax.tick_params(axis="y", labelsize=7, labelcolor="#555577")
         ax.legend()
         fig.tight_layout()
 
@@ -236,17 +254,21 @@ def make_gpu_busy_line(
     title: str,
     save_path: Path | None = None,
 ) -> Figure:
-    """Overlaid MsGPUBusy line chart — all runs on one graph."""
+    """Overlaid MsGPUBusy line chart — all runs on one graph, y-axis tightly zoomed."""
+    all_vals = np.concatenate(list(gpu_busy_by_label.values()))
+    y_max = max(float(np.percentile(all_vals, 95)) * 1.05, 5.0)
+
     with plt.rc_context(DARK_STYLE):
         fig, ax = plt.subplots(figsize=(12, 5))
 
-        for (label, vals), color in zip(gpu_busy_by_label.items(), PALETTE):
+        for (label, vals), color in zip(gpu_busy_by_label.items(), PALETTE * 10):
             x    = np.arange(len(vals))
             mean = float(vals.mean())
-            ax.plot(x, vals, color=color, linewidth=1, alpha=0.85,
+            ax.plot(x, vals, color=color, linewidth=0.8, alpha=0.85,
                     label=f"{label}  (mean {mean:.1f} ms)")
             ax.axhline(mean, color=color, linestyle="-", linewidth=1.2, alpha=0.5)
 
+        ax.set_ylim(bottom=0, top=y_max)
         ax.set_title(title)
         ax.set_xlabel("Frame")
         ax.set_ylabel("GPU Busy (ms)")

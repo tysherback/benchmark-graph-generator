@@ -554,13 +554,14 @@ class App(tk.Tk):
                 self._log(f"  {len(ft):,} samples | avg {metrics['avg_fps']:.1f} FPS | "
                           f"1% {metrics['one_pct_low']:.1f} | 0.1% {metrics['point1_pct_low']:.1f}")
 
-                self._log(f"  Rendering frametime chart …")
-                fig = bg.make_frametime_plot(
-                    ft, f"{title} — {label} (Frametime)",
-                    save_path=run_dir / f"{label}_frametime",
-                )
-                figs.append((f"Frametime: {label}", fig))
-                self._log(f"  Done.", tag="dim")
+            # Combined frametime chart (all runs overlaid on one graph)
+            self._log("Generating frametime chart …")
+            fig = bg.make_frametime_combined(
+                frametimes_by_label,
+                f"{title} — Frametime",
+                save_path=run_dir / "frametime",
+            )
+            figs.append(("Frametime", fig))
 
             # Comparison bar
             self._log("Generating comparison bar chart …")
