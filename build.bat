@@ -16,7 +16,7 @@ if errorlevel 1 (
 
 echo.
 echo [2/2] Building EXE...
-pyinstaller BenchmarkGraphGenerator.spec --clean --log-level INFO > build.log 2>&1
+python -m PyInstaller BenchmarkGraphGenerator.spec --clean --log-level INFO > build.log 2>&1
 type build.log
 
 echo.
