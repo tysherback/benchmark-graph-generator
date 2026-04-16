@@ -378,14 +378,14 @@ class App(tk.Tk):
         log_frame = ttk.Frame(self)
         log_frame.pack(side="bottom", fill="x", padx=12, pady=(0, 8))
 
-        self._log = ScrolledText(log_frame, height=6, state="disabled",
+        self._log_text = ScrolledText(log_frame, height=6, state="disabled",
                                   bg=BG_PANEL, fg=FG_TEXT, font=FONT_MONO,
                                   insertbackground=FG_TEXT, relief="flat",
                                   borderwidth=0, wrap="word")
-        self._log.pack(fill="x")
-        self._log.tag_config("error", foreground="#ff6688")
-        self._log.tag_config("ok",    foreground="#44dd99")
-        self._log.tag_config("dim",   foreground=FG_DIM)
+        self._log_text.pack(fill="x")
+        self._log_text.tag_config("error", foreground="#ff6688")
+        self._log_text.tag_config("ok",    foreground="#44dd99")
+        self._log_text.tag_config("dim",   foreground=FG_DIM)
 
         # ── Chart preview (expands into remaining space) ───────────────────
         sep = ttk.Separator(self, orient="horizontal")
@@ -646,16 +646,16 @@ class App(tk.Tk):
             self.after(80, self._poll_log)
 
     def _log_widget_write(self, text: str, tag: str = "", clear: bool = False) -> None:
-        self._log.configure(state="normal")
+        self._log_text.configure(state="normal")
         if clear:
-            self._log.delete("1.0", "end")
+            self._log_text.delete("1.0", "end")
         if text:
             if tag:
-                self._log.insert("end", text, tag)
+                self._log_text.insert("end", text, tag)
             else:
-                self._log.insert("end", text)
-        self._log.see("end")
-        self._log.configure(state="disabled")
+                self._log_text.insert("end", text)
+        self._log_text.see("end")
+        self._log_text.configure(state="disabled")
 
     # -----------------------------------------------------------------------
     # Post-generation UI update (always on main thread via queue)
