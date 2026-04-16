@@ -357,7 +357,23 @@ class App(tk.Tk):
         self._progress = ttk.Progressbar(actions, mode="indeterminate", length=160)
         self._progress.pack(side="right", padx=(0, 0))
 
-        # ── Chart preview ──────────────────────────────────────────────────
+        # ── Log output (packed BEFORE the notebook so it always has space) ──
+        sep2 = ttk.Separator(self, orient="horizontal")
+        sep2.pack(side="bottom", fill="x", padx=12, pady=(0, 0))
+
+        log_frame = ttk.Frame(self)
+        log_frame.pack(side="bottom", fill="x", padx=12, pady=(0, 8))
+
+        self._log = ScrolledText(log_frame, height=6, state="disabled",
+                                  bg=BG_PANEL, fg=FG_TEXT, font=FONT_MONO,
+                                  insertbackground=FG_TEXT, relief="flat",
+                                  borderwidth=0, wrap="word")
+        self._log.pack(fill="x")
+        self._log.tag_config("error", foreground="#ff6688")
+        self._log.tag_config("ok",    foreground="#44dd99")
+        self._log.tag_config("dim",   foreground=FG_DIM)
+
+        # ── Chart preview (expands into remaining space) ───────────────────
         sep = ttk.Separator(self, orient="horizontal")
         sep.pack(fill="x", padx=12, pady=(10, 0))
 
@@ -375,22 +391,6 @@ class App(tk.Tk):
                         text="Add CSV files and click  Generate Charts  to see results here.",
                         foreground=FG_DIM)
         lbl.place(relx=0.5, rely=0.5, anchor="center")
-
-        # ── Log output ─────────────────────────────────────────────────────
-        sep2 = ttk.Separator(self, orient="horizontal")
-        sep2.pack(fill="x", padx=12, pady=(6, 0))
-
-        log_frame = ttk.Frame(self)
-        log_frame.pack(fill="x", padx=12, pady=(4, 8))
-
-        self._log = ScrolledText(log_frame, height=6, state="disabled",
-                                  bg=BG_PANEL, fg=FG_TEXT, font=FONT_MONO,
-                                  insertbackground=FG_TEXT, relief="flat",
-                                  borderwidth=0, wrap="word")
-        self._log.pack(fill="x")
-        self._log.tag_config("error", foreground="#ff6688")
-        self._log.tag_config("ok",    foreground="#44dd99")
-        self._log.tag_config("dim",   foreground=FG_DIM)
 
     # -----------------------------------------------------------------------
     # File list management
