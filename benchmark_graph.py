@@ -172,8 +172,8 @@ def make_frametime_combined(
 ) -> Figure:
     """Overlaid frametime line chart — all runs on one graph, y-axis tightly zoomed."""
     all_ft = np.concatenate(list(frametimes_by_label.values()))
-    # Clip at 95th percentile + 5 % headroom so the bulk of frames fills the view.
-    y_max = max(float(np.percentile(all_ft, 95)) * 1.05, 20.0)
+    # 97th percentile clips spikes while keeping the bulk of frames filling the chart.
+    y_max = max(float(np.percentile(all_ft, 97)) * 1.04, 20.0)
     total_clipped = int(np.sum(all_ft > y_max))
 
     with plt.rc_context(DARK_STYLE):
@@ -183,7 +183,7 @@ def make_frametime_combined(
             x = np.arange(len(ft))
             mean_ft = float(np.mean(ft))
             lbl = "" if _single else label
-            ax.plot(x, ft, color=color, linewidth=0.8, alpha=0.85, label=lbl or None)
+            ax.plot(x, ft, color=color, linewidth=0.8, alpha=0.5, label=lbl or None)
             ax.axhline(mean_ft, color=color, linestyle="-", linewidth=1.2, alpha=0.55,
                        label=f"{lbl+' ' if lbl else ''}avg {mean_ft:.2f} ms  ({1000/mean_ft:.1f} FPS)")
 
@@ -216,14 +216,15 @@ def make_comparison_bar(
     save_path: Path | None = None,
 ) -> Figure:
     """Horizontal grouped bar chart: Average FPS, 1% Low, 0.1% Low per run."""
-    y      = np.arange(len(labels))
-    height = 0.09   # thin bars
+    height  = 0.09   # bar thickness
+    spacing = 0.42   # centre-to-centre distance between run groups
+    y = np.arange(len(labels)) * spacing
 
     avg   = [m["avg_fps"]        for m in all_metrics]
     low1  = [m["one_pct_low"]    for m in all_metrics]
     low01 = [m["point1_pct_low"] for m in all_metrics]
 
-    fig_h = max(3.0, len(labels) * 1.2 + 1.5)
+    fig_h = max(2.5, len(labels) * spacing + 1.2)
 
     with plt.rc_context(DARK_STYLE):
         fig, ax = plt.subplots(figsize=(10, fig_h))
@@ -236,6 +237,7 @@ def make_comparison_bar(
 
         ax.set_yticks(y)
         ax.set_yticklabels(labels)
+        ax.set_ylim(y[0] - spacing * 0.6, y[-1] + spacing * 0.6)
         ax.set_title(title)
         ax.set_xlabel("FPS")
         ax.xaxis.grid(True)
@@ -254,9 +256,10 @@ def make_gpu_busy_line(
     title: str,
     save_path: Path | None = None,
 ) -> Figure:
-    """Overlaid MsGPUBusy line chart — all runs on one graph, y-axis tightly zoomed."""
+    """Overlaid MsGPUBusy line chart — all runs on one graph."""
     all_vals = np.concatenate(list(gpu_busy_by_label.values()))
-    y_max = max(float(np.percentile(all_vals, 95)) * 1.05, 5.0)
+    # 99th percentile gives a comfortable view without being too tight.
+    y_max = max(float(np.percentile(all_vals, 99)) * 1.15, 5.0)
 
     with plt.rc_context(DARK_STYLE):
         fig, ax = plt.subplots(figsize=(12, 5))
@@ -264,7 +267,7 @@ def make_gpu_busy_line(
         for (label, vals), color in zip(gpu_busy_by_label.items(), PALETTE * 10):
             x    = np.arange(len(vals))
             mean = float(vals.mean())
-            ax.plot(x, vals, color=color, linewidth=0.8, alpha=0.85,
+            ax.plot(x, vals, color=color, linewidth=0.8, alpha=0.5,
                     label=f"{label}  (mean {mean:.1f} ms)")
             ax.axhline(mean, color=color, linestyle="-", linewidth=1.2, alpha=0.5)
 
