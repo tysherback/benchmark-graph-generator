@@ -1,0 +1,30 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: ["claude/csv-to-gui-app-sEKHA", "main"]
+  workflow_dispatch:   # allow manual trigger from GitHub Actions tab
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install numpy pandas matplotlib pyinstaller
+
+      - name: Build EXE
+        run: pyinstaller BenchmarkGraphGenerator.spec --clean
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BenchmarkGraphGenerator-windows
+          path: dist/BenchmarkGraphGenerator.exe
+          if-no-files-found: error
