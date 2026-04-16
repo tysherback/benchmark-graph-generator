@@ -44,12 +44,38 @@ def find_frametime_column(df: pd.DataFrame) -> str:
     )
 
 
+# Columns CapFrameX/PresentMon may include for latency analysis.
+# Each entry: (csv_column_name, short_display_name, axis_label)
+LATENCY_COLUMNS: list[tuple[str, str, str]] = [
+    ("MsUntilDisplayed",     "PC Latency",      "PC Latency (ms) — lower is better"),
+    ("MsUntilRenderComplete","Render Latency",   "Render Latency (ms) — lower is better"),
+    ("MsInPresentAPI",       "Present API Time", "Present API Time (ms) — lower is better"),
+    ("MsCPUBusy",            "CPU Busy",         "CPU Busy (ms) — lower is better"),
+]
+
+
+def extract_latency_cols(df: pd.DataFrame) -> dict[str, np.ndarray]:
+    """
+    Return {display_name: array} for every latency column that is present,
+    has at least 100 valid samples, and is not effectively all-zero.
+    """
+    result: dict[str, np.ndarray] = {}
+    for col_name, display_name, _ in LATENCY_COLUMNS:
+        if col_name not in df.columns:
+            continue
+        vals = pd.to_numeric(df[col_name], errors="coerce").dropna().to_numpy()
+        vals = vals[(vals > 0) & (vals < 1000)]
+        if len(vals) >= 100:
+            result[display_name] = vals
+    return result
+
+
 def load_frametimes(
     csv_path: Path, frametime_col: str | None = None
-) -> tuple[np.ndarray, str, np.ndarray | None]:
+) -> tuple[np.ndarray, str, np.ndarray | None, dict[str, np.ndarray]]:
     """
     Load a PresentMon/CapFrameX CSV and return
-    (frametime_ms_array, used_column_name, gpu_busy_array_or_None).
+    (frametime_ms_array, used_column_name, gpu_busy_or_None, latency_dict).
 
     CapFrameX files start with a comment line (//Ignore=true), so we skip row 0.
     """
@@ -68,7 +94,9 @@ def load_frametimes(
         if len(vals) > 0:
             gpu_busy = vals
 
-    return ft, col, gpu_busy
+    latency = extract_latency_cols(df)
+
+    return ft, col, gpu_busy, latency
 
 
 def compute_metrics(frametime_ms: np.ndarray) -> dict[str, float]:
@@ -282,6 +310,53 @@ def make_gpu_busy_line(
     return fig
 
 
+def make_latency_plot(
+    runs_by_label: dict[str, np.ndarray],
+    metric_display_name: str,
+    title: str,
+    save_path: Path | None = None,
+) -> Figure:
+    """
+    Overlaid latency line chart for one metric across all runs.
+    Fixed 0–60 ms y-axis; samples above 60 ms are silently clipped.
+    """
+    y_max = 60.0
+    axis_label = next(
+        (lbl for _, name, lbl in LATENCY_COLUMNS if name == metric_display_name),
+        f"{metric_display_name} (ms) — lower is better",
+    )
+    all_vals = np.concatenate(list(runs_by_label.values()))
+    clipped = int(np.sum(all_vals > y_max))
+
+    with plt.rc_context(DARK_STYLE):
+        fig, ax = plt.subplots(figsize=(12, 5))
+
+        for (label, vals), color in zip(runs_by_label.items(), PALETTE * 10):
+            x    = np.arange(len(vals))
+            mean = float(np.mean(vals))
+            ax.plot(x, vals, color=color, linewidth=0.8, alpha=0.5, label=label or None)
+            ax.axhline(mean, color=color, linestyle="-", linewidth=1.2, alpha=0.55,
+                       label=f"{label+' ' if label else ''}avg {mean:.2f} ms")
+
+        ax.set_ylim(bottom=0, top=y_max)
+        ax.set_title(title)
+        ax.set_xlabel("Frame")
+        ax.set_ylabel(axis_label)
+        ax.yaxis.grid(True)
+
+        clip_note = (
+            f"{clipped} spike{'s' if clipped != 1 else ''} above 60 ms hidden"
+            if clipped else "y-axis: 0 – 60 ms"
+        )
+        ax.legend(fontsize=8, title=clip_note, title_fontsize=7)
+        fig.tight_layout()
+
+        if save_path is not None:
+            _save_figure(fig, save_path)
+
+    return fig
+
+
 def make_distribution_plot(
     frametime_ms_by_label: dict[str, np.ndarray],
     title: str,
@@ -340,16 +415,19 @@ def main() -> None:
     if not labels or len(labels) != len(csv_paths):
         labels = [p.stem for p in csv_paths]
 
-    all_metrics:           list[dict]               = []
-    frametimes_by_label:   dict[str, np.ndarray]    = {}
-    gpu_busy_by_label:     dict[str, np.ndarray]    = {}
+    all_metrics:            list[dict]                        = []
+    frametimes_by_label:    dict[str, np.ndarray]             = {}
+    gpu_busy_by_label:      dict[str, np.ndarray]             = {}
+    latency_by_metric:      dict[str, dict[str, np.ndarray]]  = {}
     used_col: str | None = None
 
     for label, path in zip(labels, csv_paths):
-        ft, col, gpu_busy = load_frametimes(path, args.frametime_col)
+        ft, col, gpu_busy, latency = load_frametimes(path, args.frametime_col)
         used_col = used_col or col
         if gpu_busy is not None:
             gpu_busy_by_label[label] = gpu_busy
+        for metric_name, vals in latency.items():
+            latency_by_metric.setdefault(metric_name, {})[label] = vals
 
         metrics = compute_metrics(ft)
         metrics["label"]   = label
@@ -391,6 +469,16 @@ def main() -> None:
     fig = make_distribution_plot(frametimes_by_label, f"{args.title} — Frametime Distribution",
                                  save_path=outdir / "frametime_distribution")
     plt.close(fig)
+
+    for metric_name, runs_data in latency_by_metric.items():
+        slug = metric_name.lower().replace(" ", "_")
+        fig = make_latency_plot(runs_data, metric_name,
+                                f"{args.title} — {metric_name}",
+                                save_path=outdir / f"latency_{slug}")
+        plt.close(fig)
+
+    if not latency_by_metric:
+        print("Note: no latency columns found in any CSV — skipping latency charts.")
 
     print(f"Wrote charts to: {outdir.resolve()}")
 

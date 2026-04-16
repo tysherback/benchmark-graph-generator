@@ -531,18 +531,21 @@ class App(tk.Tk):
             run_dir   = outdir / timestamp
             run_dir.mkdir(parents=True, exist_ok=True)
 
-            all_metrics:         list[dict]            = []
-            frametimes_by_label: dict[str, np.ndarray] = {}
-            gpu_busy_by_label:   dict[str, np.ndarray] = {}
-            figs:                list[tuple[str, object]] = []  # (tab_title, Figure)
+            all_metrics:         list[dict]                       = []
+            frametimes_by_label: dict[str, np.ndarray]            = {}
+            gpu_busy_by_label:   dict[str, np.ndarray]            = {}
+            latency_by_metric:   dict[str, dict[str, np.ndarray]] = {}
+            figs:                list[tuple[str, object]]         = []
             used_col: str | None = None
 
             for label, path in zip(labels, paths):
                 self._log(f"Loading  {path.name} …")
-                ft, col, gpu_busy = bg.load_frametimes(path, ft_col)
+                ft, col, gpu_busy, latency = bg.load_frametimes(path, ft_col)
                 used_col = used_col or col
                 if gpu_busy is not None:
                     gpu_busy_by_label[label] = gpu_busy
+                for metric_name, vals in latency.items():
+                    latency_by_metric.setdefault(metric_name, {})[label] = vals
 
                 metrics = bg.compute_metrics(ft)
                 metrics["label"]   = label
@@ -551,8 +554,10 @@ class App(tk.Tk):
                 all_metrics.append(metrics)
                 frametimes_by_label[label] = ft
 
+                found = list(latency.keys()) or ["none"]
                 self._log(f"  {len(ft):,} samples | avg {metrics['avg_fps']:.1f} FPS | "
-                          f"1% {metrics['one_pct_low']:.1f} | 0.1% {metrics['point1_pct_low']:.1f}")
+                          f"1% {metrics['one_pct_low']:.1f} | 0.1% {metrics['point1_pct_low']:.1f} | "
+                          f"latency cols: {', '.join(found)}", tag="dim")
 
             # Combined frametime chart (all runs overlaid on one graph)
             self._log("Generating frametime chart …")
@@ -583,7 +588,21 @@ class App(tk.Tk):
                                              save_path=run_dir / "comparison_gpu_busy")
                 figs.append(("GPU Busy", fig))
             else:
-                self._log("  (no MsGPUBusy column found — skipping GPU chart)", tag="dim")
+                self._log("  (no MsGPUBusy column found — skipping)", tag="dim")
+
+            # Latency charts — one tab per detected metric
+            if latency_by_metric:
+                for metric_name, runs_data in latency_by_metric.items():
+                    self._log(f"Generating latency chart: {metric_name} …")
+                    slug = metric_name.lower().replace(" ", "_")
+                    fig = bg.make_latency_plot(
+                        runs_data, metric_name,
+                        f"{title} — {metric_name}",
+                        save_path=run_dir / f"latency_{slug}",
+                    )
+                    figs.append((f"Latency: {metric_name}", fig))
+            else:
+                self._log("  (no latency columns found — skipping latency charts)", tag="dim")
 
             # Summary CSV
             pd.DataFrame(all_metrics).to_csv(run_dir / "summary.csv", index=False)
