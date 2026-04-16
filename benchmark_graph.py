@@ -170,10 +170,9 @@ def make_frametime_combined(
     save_path: Path | None = None,
     _single: bool = False,
 ) -> Figure:
-    """Overlaid frametime line chart — all runs on one graph, y-axis tightly zoomed."""
+    """Overlaid frametime line chart — all runs on one graph, y-axis 0–60 ms."""
     all_ft = np.concatenate(list(frametimes_by_label.values()))
-    # 97th percentile clips spikes while keeping the bulk of frames filling the chart.
-    y_max = max(float(np.percentile(all_ft, 97)) * 1.04, 20.0)
+    y_max = 60.0
     total_clipped = int(np.sum(all_ft > y_max))
 
     with plt.rc_context(DARK_STYLE):
@@ -197,8 +196,8 @@ def make_frametime_combined(
         ax.yaxis.grid(True)
 
         clip_note = (
-            f"y-axis clipped at {y_max:.0f} ms  ({total_clipped} spike{'s' if total_clipped != 1 else ''} hidden)"
-            if total_clipped else f"y-axis clipped at {y_max:.0f} ms"
+            f"{total_clipped} spike{'s' if total_clipped != 1 else ''} above 60 ms hidden"
+            if total_clipped else "y-axis: 0 – 60 ms"
         )
         ax.legend(fontsize=8, title=clip_note, title_fontsize=7)
         fig.tight_layout()
@@ -256,10 +255,8 @@ def make_gpu_busy_line(
     title: str,
     save_path: Path | None = None,
 ) -> Figure:
-    """Overlaid MsGPUBusy line chart — all runs on one graph."""
-    all_vals = np.concatenate(list(gpu_busy_by_label.values()))
-    # 99th percentile gives a comfortable view without being too tight.
-    y_max = max(float(np.percentile(all_vals, 99)) * 1.15, 5.0)
+    """Overlaid MsGPUBusy line chart — all runs on one graph, y-axis 0–60 ms."""
+    y_max = 60.0
 
     with plt.rc_context(DARK_STYLE):
         fig, ax = plt.subplots(figsize=(12, 5))
