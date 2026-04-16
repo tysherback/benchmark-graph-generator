@@ -114,7 +114,8 @@ def compute_metrics(frametime_ms: np.ndarray) -> dict[str, float]:
 PALETTE = ["#e43f64", "#2daae9", "#c680cf"]
 
 DARK_STYLE: dict = {
-    "font.family":       "Inter",
+    "font.family":       "sans-serif",
+    "font.sans-serif":   ["Inter", "Segoe UI", "Arial", "DejaVu Sans"],
     "font.weight":       "light",
     "figure.facecolor":  "#1a1a2e",
     "axes.facecolor":    "#16213e",

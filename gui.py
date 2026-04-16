@@ -525,11 +525,13 @@ class App(tk.Tk):
                 self._log(f"  {len(ft):,} samples | avg {metrics['avg_fps']:.1f} FPS | "
                           f"1% {metrics['one_pct_low']:.1f} | 0.1% {metrics['point1_pct_low']:.1f}")
 
+                self._log(f"  Rendering frametime chart …")
                 fig = bg.make_frametime_plot(
                     ft, f"{title} — {label} (Frametime)",
                     save_path=run_dir / f"{label}_frametime",
                 )
                 figs.append((f"Frametime: {label}", fig))
+                self._log(f"  Done.", tag="dim")
 
             # Comparison bar
             self._log("Generating comparison bar chart …")
@@ -560,8 +562,10 @@ class App(tk.Tk):
             # Send results to main thread
             self._log_queue.put(("__done__", figs, run_dir))
 
-        except Exception as exc:
+        except BaseException as exc:
+            import traceback
             self._log(f"Error: {exc}", tag="error")
+            self._log(traceback.format_exc(), tag="error")
             self._log_queue.put(("__error__",))
 
     # -----------------------------------------------------------------------
@@ -590,7 +594,12 @@ class App(tk.Tk):
 
                 elif kind == "__done__":
                     _, figs, run_dir = item
-                    self._on_generation_done(figs, run_dir)
+                    try:
+                        self._on_generation_done(figs, run_dir)
+                    except BaseException as exc:
+                        import traceback
+                        self._log_widget_write(f"Display error: {exc}\n{traceback.format_exc()}\n", tag="error")
+                        self._on_generation_error()
 
                 elif kind == "__error__":
                     self._on_generation_error()
