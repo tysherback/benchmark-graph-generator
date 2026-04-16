@@ -223,7 +223,7 @@ def make_comparison_bar(
     low1  = [m["one_pct_low"]    for m in all_metrics]
     low01 = [m["point1_pct_low"] for m in all_metrics]
 
-    fig_h = max(2.5, len(labels) * spacing + 1.2)
+    fig_h = max(4.5, len(labels) * 1.2 + 2.0)
 
     with plt.rc_context(DARK_STYLE):
         fig, ax = plt.subplots(figsize=(10, fig_h))
