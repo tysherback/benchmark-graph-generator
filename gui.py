@@ -224,6 +224,20 @@ class App(tk.Tk):
         self._build_menubar()
         self._build_ui()
         self._poll_log()
+        # Pre-warm matplotlib on the main thread so font cache and backend
+        # are fully initialised before any worker thread touches them.
+        self.after(200, self._prewarm_matplotlib)
+
+    # -----------------------------------------------------------------------
+    # Matplotlib pre-warm (avoids first-use font-cache hang in worker thread)
+    # -----------------------------------------------------------------------
+
+    def _prewarm_matplotlib(self) -> None:
+        try:
+            fig = plt.figure()
+            plt.close(fig)
+        except Exception:
+            pass
 
     # -----------------------------------------------------------------------
     # Menu bar
@@ -504,6 +518,8 @@ class App(tk.Tk):
 
     def _run_generation(self, params: dict) -> None:
         """Runs in a background thread. Posts results back via queue."""
+        # This fires before the try-block so we know the thread is alive.
+        self._log_queue.put(("__msg__", "Worker thread started…", "dim"))
         try:
             title   = params["title"]
             ft_col  = params["ft_col"]
@@ -577,9 +593,16 @@ class App(tk.Tk):
 
         except BaseException as exc:
             import traceback
-            self._log(f"Error: {exc}", tag="error")
-            self._log(traceback.format_exc(), tag="error")
+            tb = traceback.format_exc()
+            self._log_queue.put(("__msg__", f"Error: {exc}\n{tb}", "error"))
             self._log_queue.put(("__error__",))
+            # Also write to a debug file as a fallback in case the queue
+            # doesn't flush (e.g. the main thread is blocked).
+            try:
+                debug_path = Path(params.get("outdir", Path("."))) / "debug.log"
+                debug_path.write_text(f"Error: {exc}\n\n{tb}", encoding="utf-8")
+            except Exception:
+                pass
 
     # -----------------------------------------------------------------------
     # Log helpers (thread-safe: write to queue, read in main thread)
