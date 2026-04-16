@@ -22,7 +22,7 @@ a = Analysis(
     ],
     hookspath=[],
     runtime_hooks=[],
-    excludes=["_tkinter_test", "test", "unittest"],
+    excludes=[],
     noarchive=False,
 )
 
