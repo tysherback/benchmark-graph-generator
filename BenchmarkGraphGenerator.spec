@@ -9,6 +9,9 @@ a = Analysis(
     hiddenimports=[
         "matplotlib.backends.backend_tkagg",
         "matplotlib.backends._backend_tk",
+        "matplotlib.backends.backend_svg",
+        "matplotlib.backends.backend_agg",
+        "matplotlib.backends.backend_pdf",
         "tkinter",
         "tkinter.ttk",
         "tkinter.filedialog",

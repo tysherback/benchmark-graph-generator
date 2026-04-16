@@ -135,6 +135,19 @@ DARK_STYLE: dict = {
 
 
 # ----------------------------
+# Save helper
+# ----------------------------
+
+def _save_figure(fig: Figure, save_path: Path) -> None:
+    """Save fig as PNG (always) and SVG (best-effort — backend may not be bundled)."""
+    fig.savefig(save_path.with_suffix(".png"), dpi=200)
+    try:
+        fig.savefig(save_path.with_suffix(".svg"))
+    except Exception:
+        pass  # SVG backend not available (e.g. in PyInstaller bundle without it)
+
+
+# ----------------------------
 # Chart functions
 # Each returns the Figure so callers can embed or display it.
 # Pass save_path to also write PNG + SVG to disk.
@@ -175,8 +188,7 @@ def make_frametime_plot(
         fig.tight_layout()
 
         if save_path is not None:
-            fig.savefig(save_path.with_suffix(".png"), dpi=200)
-            fig.savefig(save_path.with_suffix(".svg"))
+            _save_figure(fig, save_path)
 
     return fig
 
@@ -214,8 +226,7 @@ def make_comparison_bar(
         fig.tight_layout()
 
         if save_path is not None:
-            fig.savefig(save_path.with_suffix(".png"), dpi=200)
-            fig.savefig(save_path.with_suffix(".svg"))
+            _save_figure(fig, save_path)
 
     return fig
 
@@ -244,8 +255,7 @@ def make_gpu_busy_line(
         fig.tight_layout()
 
         if save_path is not None:
-            fig.savefig(save_path.with_suffix(".png"), dpi=200)
-            fig.savefig(save_path.with_suffix(".svg"))
+            _save_figure(fig, save_path)
 
     return fig
 
@@ -275,8 +285,7 @@ def make_distribution_plot(
         fig.tight_layout()
 
         if save_path is not None:
-            fig.savefig(save_path.with_suffix(".png"), dpi=200)
-            fig.savefig(save_path.with_suffix(".svg"))
+            _save_figure(fig, save_path)
 
     return fig
 
