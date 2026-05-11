@@ -50,6 +50,7 @@ FONT_TITLE = ("Segoe UI", 11, "bold")
 
 PRESETS: dict[str, list[str]] = {
     "Neon Dark":     ["#e43f64", "#2daae9", "#c680cf"],
+    "Refrag":        ["#34FACD", "#FF8A33", "#5069FF"],
     "Arctic Blue":   ["#00b4d8", "#48cae4", "#ade8f4"],
     "Warm Sunset":   ["#f77f00", "#fcbf49", "#eae2b7"],
     "Forest":        ["#52b788", "#2d6a4f", "#95d5b2"],
